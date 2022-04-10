@@ -1,0 +1,21 @@
+dataset          : cifar10
+model            : VGG16
+data_root        : /home/data/cifar10
+log_root         : ./checkpoint/log
+model_root       : checkpoint
+load_checkpoint  : ./model/default/model.pth
+affix            : vgg16_5e-3alpha_lr02_bn64
+milestones       : [60]
+mask             : True
+seed             : 1
+batch_size       : 64
+max_epoch        : 160
+learning_rate    : 0.01
+momentum         : 0.9
+weight_decay     : 0.0001
+n_eval_step      : 100
+gpu              : 7
+alpha            : 1e-06
+log_folder       : checkpoint/vgg16_5e-3alpha_lr02_bn64
+model_folder     : checkpoint/vgg16_5e-3alpha_lr02_bn64/best_acc_model.pth
+Test accuracy 92.45%, Test loss 0.352

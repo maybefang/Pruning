@@ -49,8 +49,10 @@ def main(args):
             net = MaskedWideResNet(depth=28, num_classes=args.dataset == 'cifar10' and 10 or 100, widen_factor=8)
 
     net.load_state_dict(
-            torch.load(file_name, map_location=lambda storage, loc: storage))
-            
+            torch.load(args.model_folder, map_location=lambda storage, loc: storage))
+
+    device = torch.device("cuda")
+    torch.cuda.set_device(args.gpu)
     net.to(device)
 
     trainer = Trainer(args, logger)
@@ -76,5 +78,5 @@ def main(args):
 if __name__ == '__main__':
     args = parser()
     # print_args(args)
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+    #os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     main(args)
