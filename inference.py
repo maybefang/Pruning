@@ -21,7 +21,7 @@ def main(args):
 
     # log_folder = os.path.join(args.log_root, save_folder)
     log_folder = os.path.join(args.model_root, save_folder)
-    model_folder = os.path.join(args.model_root, save_folder)
+    model_folder = os.path.join(args.model_root, save_folder,"best_acc_model.pth")
 
     makedirs(log_folder)
     makedirs(model_folder)
@@ -48,6 +48,9 @@ def main(args):
         if args.mask:
             net = MaskedWideResNet(depth=28, num_classes=args.dataset == 'cifar10' and 10 or 100, widen_factor=8)
 
+    net.load_state_dict(
+            torch.load(file_name, map_location=lambda storage, loc: storage))
+            
     net.to(device)
 
     trainer = Trainer(args, logger)
