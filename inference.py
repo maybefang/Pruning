@@ -20,7 +20,7 @@ def main(args):
     data_dir = args.data_root
 
     # log_folder = os.path.join(args.log_root, save_folder)
-    log_folder = os.path.join(args.model_root, save_folder)
+    log_folder = os.path.join(args.model_root, save_folder,"inference.txt")
     model_folder = os.path.join(args.model_root, save_folder,"best_acc_model.pth")
 
     makedirs(log_folder)

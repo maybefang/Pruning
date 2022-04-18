@@ -92,7 +92,7 @@ class MaskedConv2d(nn.Module):
         self.groups = groups
         self.mask = None
 
-        ## define weight
+        ## define weight (save)
         self.weight = nn.Parameter(torch.Tensor(
             out_c, in_c // groups, *kernel_size
         ))
@@ -101,7 +101,7 @@ class MaskedConv2d(nn.Module):
         else:
             self.register_parameter('bias', None)
         # set t, t is a number not a vector
-        self.threshold = nn.Parameter(torch.Tensor(1))  # if out_c=3,init [0,0,0],out_c=2 init [0,0] the numbers are 0
+        self.threshold = nn.Parameter(torch.Tensor(1))  # if out_c=3,init [0,0,0],out_c=2 init [0,0] the numbers are 0  (save)
         self.step = BinaryStep.apply
         self.reset_parameters()
 
@@ -132,16 +132,16 @@ class MaskedConv2d(nn.Module):
         return col 
     '''
 
-    def im2col(input_data, out_h, out_w, N, C, H, W):
-        #N, C, H, W = input_shape
+    def im2col(input_data, out_h, out_w, input_shape): 
+        N, C, H, W = input_shape
         #out_h = (H + 2 * pad - ksize) // stride + 1
         #out_w = (W + 2 * pad - ksize) // stride + 1
-
+        
         img = torch.nn.functional.pad(input_data,(self.padding, self.padding, self.padding, self.padding, 0, 0),mode="constant", value=0)
 
-        strides = (C*H*W,H*W,W*stride,stride,W*stride,stride)
-        A = torch.as_strided(input_data, size=(N,C,out_h,out_w,ksize,ksize), stride=strides)
-        col = A.permute(0, 4, 5, 1, 2, 3).reshape(N*out_h*out_w, -1)
+        strides = (C*H*W, H*W, W*self.stride, self.stride, W*self.stride, self.stride)
+        A = torch.as_strided(img, size=(N,C,out_h,out_w,self.kernel_size[0],self.kernel_size[1]), stride=strides)
+        col = A.permute(1, 4, 5, 0, 2, 3).reshape(-1, N*out_h*out_w)
 
         return col 
 
@@ -177,7 +177,8 @@ class MaskedConv2d(nn.Module):
         weight_tile = self.weight.reshape(-1,weight_shape[1]*weight_shape[2]*weight_shape[3]).t() #reshape the weight to [inchannel*h*w, outchannel]
         mask = mask.reshape(-1)#将mask转换为一维，不然下面一行代码报错
         idx = [i.item() for i in mask.nonzero()]
-        masked_weight = torch.index_select(weight_tile,0,torch.tensor(idx).cuda())# spliced into a new matrix将idx放在GPU上否则报错
+        idx = torch.tensor(idx).cuda()#将idx放在GPU上否则报错
+        masked_weight = torch.index_select(weight_tile,0,idx)# spliced into a new matrix
 
         #conv_out = torch.nn.functional.conv2d(x, masked_weight, bias=self.bias, stride=self.stride,
         #                                      padding=self.padding, dilation=self.dilation, groups=self.groups)
@@ -192,16 +193,17 @@ class MaskedConv2d(nn.Module):
         #print("============================================x:",x.shape)
         #x_tile = self.im2col(x, out_h, out_w, N, C, H, W)
         #################################   im2col         #########################################
-        img = torch.nn.functional.pad(x,(self.padding, self.padding, self.padding, self.padding, 0, 0),mode="constant", value=0)
+        #img = torch.nn.functional.pad(x,(self.padding, self.padding, self.padding, self.padding, 0, 0),mode="constant", value=0)
 
-        strides = (C*H*W, H*W, W*self.stride, self.stride, W*self.stride, self.stride)
-        A = torch.as_strided(img, size=(N,C,out_h,out_w,k_h,k_w), stride=strides)
-        x_tile = A.permute(0, 4, 5, 1, 2, 3).reshape(N*out_h*out_w, -1)
+        #strides = (C*H*W, H*W, W*self.stride, self.stride, W*self.stride, self.stride)
+        #A = torch.as_strided(img, size=(N,C,out_h,out_w,k_h,k_w), stride=strides)
+        #x_tile = A.permute(0, 4, 5, 1, 2, 3).reshape(N*out_h*out_w, -1)
         #############################################################################################
 
-        x_tile = torch.index_select(x_tile,1,torch.tensor(idx).cuda())  #输入重新拼接
+        x_tile = self.im2col(x,out_h,out_w,x_shape)
+        x_tile = torch.index_select(x_tile,0,idx).t()  #输入重新拼接,因为im2col中已经按照转置排序，此处进行行跳过,然后转置以进行之后计算
         conv_out = gemm.mymultiply_nobias(x_tile,masked_weight)
-        conv_out = conv_out.reshape(N, self.out_channels, out_h, -1) #[batch_size, output_channel(kernel_size[0]), out_h, out_w]
+        conv_out = conv_out.reshape(N,-1,self.out_channels).permute(0, 2, 1).reshape(N,self.out_channels,out_h,-1) #[batch_size, output_channel(kernel_size[0]), out_h, out_w]
         return conv_out
 
 

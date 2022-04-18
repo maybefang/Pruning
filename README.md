@@ -4,6 +4,8 @@ Recommend to use python 3.7 and pytorch 1.3.0
 
 ```
 pip install torch===1.3.0 torchversion===0.4.1
+cd models/gemm
+python setup.py install
 ```
 
 
